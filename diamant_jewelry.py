@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "Snap in Z (Face Project-like)",
+    "name": "Jewelry Tools ",
     "author": "Oscar Fernando",
     "version": (1, 3, 0),
     "blender": (3, 6, 0),
-    "location": "View3D > N Panel > SnapZ",
-    "description": "Proyecta objetos hacia una malla SOLO en Z (global o local) y opcionalmente alinea rotación a la normal",
+    "location": "View3D > N Panel > Jewelry Tools",
+    "description": "Herramientas para creación de joyerías.",
     "category": "Object",
 }
 
@@ -350,11 +350,11 @@ class OBJECT_OT_scale_z_equal_x(bpy.types.Operator):
 # ------------------------------
 
 class VIEW3D_PT_snapz_panel(bpy.types.Panel):
-    bl_label = "SnapZ"
+    bl_label = "Jewelry Tools"
     bl_idname = "VIEW3D_PT_snapz_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'SnapZ'
+    bl_category = 'Jewelry Tools'
 
     def draw(self, context):
         layout = self.layout
