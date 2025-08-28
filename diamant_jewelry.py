@@ -9,6 +9,7 @@ bl_info = {
 }
 
 import bpy
+import mathutils
 from bpy.props import (
     BoolProperty,
     FloatProperty,
@@ -16,6 +17,7 @@ from bpy.props import (
     PointerProperty,
 )
 from mathutils import Vector
+
 
 # ------------------------------
 # Utilidades
@@ -51,6 +53,26 @@ def raycast_object_world(eval_target_obj, start_world: Vector, dir_world: Vector
     hit_world = mat @ loc_local
     normal_world = (mat.to_3x3() @ nrm_local).normalized()
     return True, hit_world, normal_world, face_index
+
+
+
+#Mover 1 en Z
+# Propiedades para el contador
+def register_props():
+    bpy.types.Scene.z_up_count = bpy.props.IntProperty(
+        name="Subidas", default=0
+    )
+    bpy.types.Scene.z_down_count = bpy.props.IntProperty(
+        name="Bajadas", default=0
+    )
+
+
+def unregister_props():
+    del bpy.types.Scene.z_up_count
+    del bpy.types.Scene.z_down_count
+
+
+
 
 # ------------------------------
 # Propiedades
@@ -259,12 +281,17 @@ class OBJECT_OT_convert_to_curve(bpy.types.Operator):
             self.report({'ERROR'}, "No hay objetos seleccionados")
             return {'CANCELLED'}
 
-        # Asegurar que exista la colección "Curves"
-        if "Curves" not in bpy.data.collections:
+        # Buscar colección "Curves" en la escena activa
+        curves_collection = None
+        for coll in context.scene.collection.children:
+            if coll.name == "Curves":
+                curves_collection = coll
+                break
+
+        # Si no existe, crearla en la escena actual
+        if not curves_collection:
             curves_collection = bpy.data.collections.new("Curves")
             context.scene.collection.children.link(curves_collection)
-        else:
-            curves_collection = bpy.data.collections["Curves"]
 
         converted = []
 
@@ -283,7 +310,7 @@ class OBJECT_OT_convert_to_curve(bpy.types.Operator):
                 obj_curve.show_in_front = True
                 converted.append(obj_curve)
 
-                # Mover a colección "Curves"
+                # Mover a colección "Curves" de la escena activa
                 # 1. Quitar de las colecciones actuales
                 for coll in obj_curve.users_collection:
                     coll.objects.unlink(obj_curve)
@@ -296,6 +323,7 @@ class OBJECT_OT_convert_to_curve(bpy.types.Operator):
             self.report({'WARNING'}, "No se pudieron convertir los objetos seleccionados")
 
         return {'FINISHED'}
+
 
 #EscalaMenos1
 # --- Propiedad para guardar el texto del botón ---
@@ -345,6 +373,86 @@ class OBJECT_OT_scale_z_equal_x(bpy.types.Operator):
         return {'FINISHED'}
 
 
+#Mover En Z 1
+# Operador para subir en Z local
+class OBJECT_OT_move_z_up(bpy.types.Operator):
+    bl_idname = "object.move_z_up"
+    bl_label = "Subir +1 mm"
+    bl_description = "Mueve el objeto 1 mm en su eje Z local, sin importar la escala"
+
+    def execute(self, context):
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                # Vector Z local
+                local_offset = mathutils.Vector((0, 0, 0.1))  # 1 mm = 0.001 m
+                # Ajustar por la escala del objeto
+                world_offset = (obj.matrix_world.to_3x3() @ local_offset) / obj.scale.z
+                obj.location += world_offset
+        context.scene.z_up_count += 1
+        return {'FINISHED'}
+    
+    # Operador para bajar en Z local
+class OBJECT_OT_move_z_down(bpy.types.Operator):
+    bl_idname = "object.move_z_down"
+    bl_label = "Bajar -1 mm"
+    bl_description = "Mueve el objeto -1 mm en su eje Z local, sin importar la escala"
+
+    def execute(self, context):
+        for obj in context.selected_objects:
+            if obj.type == 'MESH':
+                local_offset = mathutils.Vector((0, 0, -0.1))  # -1 mm
+                world_offset = (obj.matrix_world.to_3x3() @ local_offset) / obj.scale.z
+                obj.location += world_offset
+        context.scene.z_down_count += 1
+        return {'FINISHED'}
+    
+
+#Seleccionar Rounds, Prongs, Cutter
+
+# --------- Operadores de Seleccion ----------
+class OBJECT_OT_select_round(bpy.types.Operator):
+    bl_idname = "object.select_round"
+    bl_label = "Round"
+    bl_description = "Selecciona todos los objetos que empiecen con 'Round'"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in context.scene.objects:
+            if obj.name.startswith("Round"):
+                obj.select_set(True)
+        return {"FINISHED"}
+
+
+class OBJECT_OT_select_prongs(bpy.types.Operator):
+    bl_idname = "object.select_prongs"
+    bl_label = "Prongs"
+    bl_description = "Selecciona todos los objetos que empiecen con 'Prongs'"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in context.scene.objects:
+            if obj.name.startswith("Prongs"):
+                obj.select_set(True)
+        return {"FINISHED"}
+
+
+class OBJECT_OT_select_cutter(bpy.types.Operator):
+    bl_idname = "object.select_cutter"
+    bl_label = "Cutter"
+    bl_description = "Selecciona todos los objetos que empiecen con 'Cutter'"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in context.scene.objects:
+            if obj.name.startswith("Cutter"):
+                obj.select_set(True)
+        return {"FINISHED"}
+
+
+
 # ------------------------------
 # Panel en N
 # ------------------------------
@@ -359,7 +467,7 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         props = context.scene.snapz_props
-
+        scene = context.scene
 
 
         col = layout.column(align=True)
@@ -374,16 +482,25 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
 
         col.separator()
         col.operator("object.apply_and_clear_constraints", icon='CONSTRAINT')
-        col.separator()
-
+    
         row = layout.row(align=True)
         row.operator("mesh.separar_loop_shrinkwrap_only", icon="MOD_SHRINKWRAP")
         row.operator("object.convert_to_curve", icon="CURVE_DATA")
-
+        col.separator()
         row = layout.row(align=True)
         row.operator("object.scale_z_minus", text=context.scene.scale_z_label, icon="TRIA_DOWN")
         row.operator("object.scale_z_equal_x", icon="FILE_REFRESH")
+        col.separator()
+        row = layout.row(align=True)
+        row.operator("object.move_z_up", text=f"▲ Subir +1 ({scene.z_up_count})")
+        row.operator("object.move_z_down", text=f"▼ Bajar -1 ({scene.z_down_count})")
+        col.separator()
+        row = layout.row(align=True)
+        row.operator("object.select_round", icon="KEYTYPE_EXTREME_VEC")
+        row.operator("object.select_prongs", icon="MESH_CAPSULE")
+        row.operator("object.select_cutter", icon="MESH_CYLINDER")
 
+        
 
 
 
@@ -393,12 +510,20 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
 
 
 classes = (
+    #MoverenZ
+    OBJECT_OT_move_z_up,
+    OBJECT_OT_move_z_down,
+    #MoverenZ
     SNAPZ_Props,
     OBJECT_OT_snap_in_z,
     OBJECT_OT_apply_and_clear_constraints,
     VIEW3D_PT_snapz_panel,
     #menos1
     OBJECT_OT_scale_z_minus, OBJECT_OT_scale_z_equal_x,
+    #SeleccionarRoundsProngsCutter
+    OBJECT_OT_select_round,
+    OBJECT_OT_select_prongs,
+    OBJECT_OT_select_cutter,
 )
 
 def register():
@@ -410,6 +535,8 @@ def register():
     bpy.utils.register_class(OBJECT_OT_convert_to_curve)
     #menos1
     bpy.types.Scene.scale_z_label = bpy.props.StringProperty(default="Restar 0.1 en Z")
+    register_props()
+    
 
 def unregister():
     del bpy.types.Scene.snapz_props
@@ -420,6 +547,6 @@ def unregister():
     bpy.utils.unregister_class(OBJECT_OT_convert_to_curve)
     #menos1
     del bpy.types.Scene.scale_z_label
-
+    unregister_props()
 if __name__ == "__main__":
     register()
