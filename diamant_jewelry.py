@@ -451,7 +451,63 @@ class OBJECT_OT_select_cutter(bpy.types.Operator):
                 obj.select_set(True)
         return {"FINISHED"}
 
+#AplicarRotation y partsloose
 
+class OBJECT_OT_apply_rotation(bpy.types.Operator):
+    bl_idname = "object.apply_rotation_only"
+    bl_label = "Apply Rotation"
+    bl_description = "Aplica solo la rotación de los objetos seleccionados"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        for obj in context.selected_objects:
+            if obj.type == "MESH":
+                # Si comparte mesh, hacer copia (single user)
+                if obj.data.users > 1:
+                    obj.data = obj.data.copy()
+
+                # Obtener solo la parte de rotación de la matriz mundial
+                rot_matrix = obj.matrix_world.to_3x3().to_4x4()
+
+                # Aplicar la rotación a la geometría
+                obj.data.transform(rot_matrix)
+
+                # Mantener ubicación y escala
+                loc = obj.matrix_world.to_translation()
+                scale = obj.matrix_world.to_scale()
+
+                obj.matrix_world = (
+                    mathutils.Matrix.Translation(loc) @
+                    mathutils.Matrix.Diagonal((scale.x, scale.y, scale.z, 1.0))
+                )
+
+        return {'FINISHED'}
+
+
+class OBJECT_OT_separate_loose_parts(bpy.types.Operator):
+    bl_idname = "object.separate_loose_parts"
+    bl_label = "Separate Loose"
+    bl_description = "Divide la geometría seleccionada en partes separadas (By Loose Parts)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # Guardar objetos seleccionados
+        selected_objs = context.selected_objects
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        for obj in selected_objs:
+            if obj.type == "MESH":
+                # Activar objeto
+                context.view_layer.objects.active = obj
+                obj.select_set(True)
+
+                # Entrar en modo edición y separar por Loose Parts
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.separate(type='LOOSE')
+                bpy.ops.object.mode_set(mode='OBJECT')
+
+        return {'FINISHED'}
 
 # ------------------------------
 # Panel en N
@@ -468,7 +524,8 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         layout = self.layout
         props = context.scene.snapz_props
         scene = context.scene
-
+        wm = context.window_manager
+        scn = context.scene
 
         col = layout.column(align=True)
         col.prop(props, "target")
@@ -480,26 +537,50 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         col.prop(props, "max_step")
         col.operator("object.snap_in_z", icon='SNAP_NORMAL')
 
-        col.separator()
         col.operator("object.apply_and_clear_constraints", icon='CONSTRAINT')
-    
+        col.separator()
+        
         row = layout.row(align=True)
         row.operator("mesh.separar_loop_shrinkwrap_only", icon="MOD_SHRINKWRAP")
         row.operator("object.convert_to_curve", icon="CURVE_DATA")
-        col.separator()
+        col.operator("object.jewelcraft_curve_distribute", text="Distribuir en Curva")
+    
         row = layout.row(align=True)
         row.operator("object.scale_z_minus", text=context.scene.scale_z_label, icon="TRIA_DOWN")
         row.operator("object.scale_z_equal_x", icon="FILE_REFRESH")
-        col.separator()
+        
         row = layout.row(align=True)
         row.operator("object.move_z_up", text=f"▲ Subir +1 ({scene.z_up_count})")
         row.operator("object.move_z_down", text=f"▼ Bajar -1 ({scene.z_down_count})")
-        col.separator()
+        
+
+        layout.separator()
+        layout.label(text="JewelCraft")
         row = layout.row(align=True)
         row.operator("object.select_round", icon="KEYTYPE_EXTREME_VEC")
         row.operator("object.select_prongs", icon="MESH_CAPSULE")
         row.operator("object.select_cutter", icon="MESH_CYLINDER")
+        col.separator() 
+        
+        col = layout.column(align=True)
+        col.operator("object.jewelcraft_gem_add", text="Añadir Gema")
 
+        row = layout.row(align=True)
+        row.operator("object.jewelcraft_prongs_add", text="Añadir Prongs")
+        row.operator("object.jewelcraft_cutter_add", text="Añadir Cutter")
+
+        row = layout.row(align=True)
+        row.operator("object.apply_rotation_only", icon="FILE_REFRESH")
+        row.operator("object.separate_loose_parts", icon="MESH_CUBE")
+
+        col = layout.column(align=True)
+
+        col.operator("object.jewelcraft_weight_display", text="Calcular Peso")
+
+        col = layout.column(align=True)
+        col.prop(wm.jewelcraft, "show_spacing", text="Mostrar Espaciado")
+        col.prop(scn.jewelcraft, "overlay_show_all", text="Mostrar Todo")
+        col.prop(scn.jewelcraft, "overlay_show_in_front", text="Mostrar Al Frente")
         
 
 
@@ -524,6 +605,8 @@ classes = (
     OBJECT_OT_select_round,
     OBJECT_OT_select_prongs,
     OBJECT_OT_select_cutter,
+    OBJECT_OT_apply_rotation,
+    OBJECT_OT_separate_loose_parts,
 )
 
 def register():
