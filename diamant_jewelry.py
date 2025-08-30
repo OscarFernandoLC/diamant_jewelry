@@ -71,7 +71,23 @@ def unregister_props():
     del bpy.types.Scene.z_up_count
     del bpy.types.Scene.z_down_count
 
-
+#FaceProject
+def update_face_project(self, context):
+    tool_settings = context.scene.tool_settings
+    if context.scene.face_project_enabled:
+        # --- Activar Face Project ---
+        tool_settings.use_snap = True
+        tool_settings.snap_elements = {'FACE'}
+        tool_settings.use_snap_project = True
+        tool_settings.snap_target = 'MEDIAN'
+        tool_settings.use_snap_align_rotation = True
+    else:
+        # --- Desactivar y volver a Vertex Closest ---
+        tool_settings.use_snap = False
+        tool_settings.snap_elements = {'VERTEX'}
+        tool_settings.use_snap_project = False
+        tool_settings.snap_target = 'CLOSEST'
+        tool_settings.use_snap_align_rotation = False
 
 
 # ------------------------------
@@ -509,6 +525,8 @@ class OBJECT_OT_separate_loose_parts(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
+
 # ------------------------------
 # Panel en N
 # ------------------------------
@@ -581,8 +599,10 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         col.prop(wm.jewelcraft, "show_spacing", text="Mostrar Espaciado")
         col.prop(scn.jewelcraft, "overlay_show_all", text="Mostrar Todo")
         col.prop(scn.jewelcraft, "overlay_show_in_front", text="Mostrar Al Frente")
-        
 
+        
+        layout = self.layout
+        layout.prop(context.scene, "face_project_enabled", text="Face Project", toggle=True)
 
 
 # ------------------------------
@@ -609,27 +629,55 @@ classes = (
     OBJECT_OT_separate_loose_parts,
 )
 
+
+# ===================
+#   REGISTRO GLOBAL
+# ===================
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+
     bpy.types.Scene.snapz_props = PointerProperty(type=SNAPZ_Props)
-    #looptools
+
+    # looptools
     bpy.utils.register_class(MESH_OT_separar_loop_shrinkwrap)
     bpy.utils.register_class(OBJECT_OT_convert_to_curve)
-    #menos1
+
+    # menos1
     bpy.types.Scene.scale_z_label = bpy.props.StringProperty(default="Restar 0.1 en Z")
-    register_props()
+
+    # face project
+    bpy.types.Scene.face_project_enabled = bpy.props.BoolProperty(
+        name="Face Project",
+        description="Activar/Desactivar Snap Face Project",
+        default=False,
+        update=update_face_project,
+    )
     
+
+    # tus props extra
+    register_props()
+
 
 def unregister():
     del bpy.types.Scene.snapz_props
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    #looptools
+
+    # looptools
     bpy.utils.unregister_class(MESH_OT_separar_loop_shrinkwrap)
     bpy.utils.unregister_class(OBJECT_OT_convert_to_curve)
-    #menos1
+
+    # menos1
     del bpy.types.Scene.scale_z_label
+
+    # face project
+    del bpy.types.Scene.face_project_enabled
+    bpy.utils.unregister_class(VIEW3D_PT_face_project_snap_panel)
+
+    # tus props extra
     unregister_props()
+
+
 if __name__ == "__main__":
     register()
