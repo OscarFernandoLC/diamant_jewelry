@@ -526,6 +526,44 @@ class OBJECT_OT_separate_loose_parts(bpy.types.Operator):
         return {'FINISHED'}
 
 
+#RotarEnZ
+# Operador que reemplaza a transform.rotate cuando está activo
+class OBJECT_OT_rotate_parent_z(bpy.types.Operator):
+    bl_idname = "object.rotate_parent_z"
+    bl_label = "Rotate Parent Z"
+    bl_options = {'INTERNAL'}
+
+    def invoke(self, context, event):
+        if context.scene.parent_z_lock_enabled:
+            return bpy.ops.transform.rotate(
+                'INVOKE_DEFAULT',
+                orient_type='PARENT',
+                constraint_axis=(False, False, True)
+            )
+        else:
+            return bpy.ops.transform.rotate('INVOKE_DEFAULT')
+
+
+class OBJECT_OT_clear_measures(bpy.types.Operator):
+    bl_idname = "object.clear_measures"
+    bl_label = "Limpiar Medidas"
+    bl_description = "Elimina todas las Grease Pencil annotations (usadas para medidas)"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        # Contador para feedback
+        count = 0
+
+        # Eliminar todos los Grease Pencil que sean annotations
+        for gp in list(bpy.data.grease_pencils):
+            if gp.is_annotation:
+                bpy.data.grease_pencils.remove(gp)
+                count += 1
+
+        self.report({'INFO'}, f"{count} medidas/anotaciones eliminadas")
+        return {'FINISHED'}
+
+
 
 # ------------------------------
 # Panel en N
@@ -603,6 +641,10 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         
         layout = self.layout
         layout.prop(context.scene, "face_project_enabled", text="Face Project", toggle=True)
+        layout.prop(context.scene, "parent_z_lock_enabled", toggle=True)
+        layout = self.layout
+        layout.operator("object.clear_measures", icon="TRASH")
+        
 
 
 # ------------------------------
@@ -627,6 +669,7 @@ classes = (
     OBJECT_OT_select_cutter,
     OBJECT_OT_apply_rotation,
     OBJECT_OT_separate_loose_parts,
+    OBJECT_OT_clear_measures,
 )
 
 
@@ -653,7 +696,20 @@ def register():
         default=False,
         update=update_face_project,
     )
-    
+
+    bpy.utils.register_class(OBJECT_OT_rotate_parent_z)
+    bpy.types.Scene.parent_z_lock_enabled = bpy.props.BoolProperty(
+        name="Rotación Parent Z",
+        description="Fuerza la rotación en eje Z del Parent",
+        default=False,
+    )
+    # Redirigir la tecla R al nuevo operador
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        kmi = km.keymap_items.new("object.rotate_parent_z", type='R', value='PRESS')
+
+
 
     # tus props extra
     register_props()
@@ -674,6 +730,18 @@ def unregister():
     # face project
     del bpy.types.Scene.face_project_enabled
     bpy.utils.unregister_class(VIEW3D_PT_face_project_snap_panel)
+
+
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.get("3D View")
+        if km:
+            for kmi in km.keymap_items:
+                if kmi.idname == "object.rotate_parent_z":
+                    km.keymap_items.remove(kmi)
+    del bpy.types.Scene.parent_z_lock_enabled
+    bpy.utils.unregister_class(OBJECT_OT_rotate_parent_z)    
+
 
     # tus props extra
     unregister_props()
