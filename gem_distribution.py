@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "Distribuir Gemas Panal (Activo al Centro)",
+    "name": "Distribuir y Reacomodar Gemas",
     "author": "Oscar Fernando",
-    "version": (1, 9),
+    "version": (2, 1),
     "blender": (3, 6, 0),
     "location": "View3D > N Panel > Joyería",
-    "description": "Distribuye gemas en patrón de panal tomando el objeto activo como centro, con slider normalizado (0–1)",
+    "description": "Distribuye gemas en panal y permite reacomodarlas acercando o separando según la distancia mínima",
     "category": "Object",
 }
 
@@ -79,6 +79,56 @@ class OBJECT_OT_distribuir_gemas_panal_centro(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class OBJECT_OT_reacomodar_gemas(bpy.types.Operator):
+    bl_idname = "object.reacomodar_gemas"
+    bl_label = "Reacomodar Gemas"
+    bl_description = "Ajusta las gemas en X e Y (local) acercando o separando hasta aproximarlas a la distancia mínima"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        seleccionados = context.selected_objects
+        activo = context.active_object
+
+        if not seleccionados or not activo:
+            self.report({"WARNING"}, "Debes tener objetos seleccionados y un activo")
+            return {"CANCELLED"}
+
+        # distancia objetivo según slider y escala del activo
+        slider_val = context.scene.gema_spacing_slider
+        distancia_objetivo = calcular_distancia(activo.scale.x, slider_val)
+
+        # cuántas veces iterar (ajusta según necesidad)
+        iteraciones = 10
+
+        for _ in range(iteraciones):
+            for i, obj1 in enumerate(seleccionados):
+                for obj2 in seleccionados[i+1:]:
+                    dx = obj2.location.x - obj1.location.x
+                    dy = obj2.location.y - obj1.location.y
+                    dist = math.sqrt(dx*dx + dy*dy)
+
+                    if dist < 1e-6:  # evitar división por cero
+                        continue
+
+                    # vector unitario
+                    ux = dx / dist
+                    uy = dy / dist
+
+                    # diferencia con la distancia objetivo
+                    diff = dist - distancia_objetivo
+
+                    if abs(diff) > 1e-4:  # tolerancia para que no tiemblen
+                        # mover ambos objetos mitad y mitad
+                        move = diff / 2
+                        obj1.location.x -= ux * move
+                        obj1.location.y -= uy * move
+                        obj2.location.x += ux * move
+                        obj2.location.y += uy * move
+
+        self.report({"INFO"}, f"Gemas reacomodadas hacia {distancia_objetivo:.3f} mm")
+        return {"FINISHED"}
+
+
 class VIEW3D_PT_distribuir_gemas_panel(bpy.types.Panel):
     bl_label = "Distribuir Gemas"
     bl_idname = "VIEW3D_PT_distribuir_gemas_panel"
@@ -103,10 +153,12 @@ class VIEW3D_PT_distribuir_gemas_panel(bpy.types.Panel):
             layout.label(text="Selecciona un objeto activo")
         
         layout.operator("object.distribuir_gemas_panal_centro")
+        layout.operator("object.reacomodar_gemas")
 
 
 def register():
     bpy.utils.register_class(OBJECT_OT_distribuir_gemas_panal_centro)
+    bpy.utils.register_class(OBJECT_OT_reacomodar_gemas)
     bpy.utils.register_class(VIEW3D_PT_distribuir_gemas_panel)
     
     bpy.types.Scene.gema_spacing_slider = bpy.props.FloatProperty(
@@ -122,6 +174,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_distribuir_gemas_panal_centro)
+    bpy.utils.unregister_class(OBJECT_OT_reacomodar_gemas)
     bpy.utils.unregister_class(VIEW3D_PT_distribuir_gemas_panel)
     del bpy.types.Scene.gema_spacing_slider
 

@@ -434,11 +434,15 @@ class OBJECT_OT_select_round(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.object.select_all(action='DESELECT')
+        active_obj = None
         for obj in context.scene.objects:
             if obj.name.startswith("Round"):
                 obj.select_set(True)
+                if active_obj is None:
+                    active_obj = obj
+        if active_obj:
+            context.view_layer.objects.active = active_obj
         return {"FINISHED"}
-
 
 class OBJECT_OT_select_prongs(bpy.types.Operator):
     bl_idname = "object.select_prongs"
@@ -448,9 +452,14 @@ class OBJECT_OT_select_prongs(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.object.select_all(action='DESELECT')
+        active_obj = None
         for obj in context.scene.objects:
             if obj.name.startswith("Prongs"):
                 obj.select_set(True)
+                if active_obj is None:
+                    active_obj = obj
+        if active_obj:
+            context.view_layer.objects.active = active_obj
         return {"FINISHED"}
 
 
@@ -462,9 +471,14 @@ class OBJECT_OT_select_cutter(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.object.select_all(action='DESELECT')
+        active_obj = None
         for obj in context.scene.objects:
             if obj.name.startswith("Cutter"):
                 obj.select_set(True)
+                if active_obj is None:
+                    active_obj = obj
+        if active_obj:
+            context.view_layer.objects.active = active_obj
         return {"FINISHED"}
 
 #AplicarRotation y partsloose
