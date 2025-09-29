@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "Exportar STL Simplificado (Prongs, Cutter y Numéricos Agrupados)",
+    "name": "Exportar STL Simplificado (Prongs, Cutter, Numéricos y Curvas)",
     "author": "Oscar Fernando",
-    "version": (1, 9),
+    "version": (2, 0),
     "blender": (3, 6, 0),
     "location": "View3D > N Panel > Export STL",
-    "description": "Exporta Prongs y Cutter agrupados + objetos numéricos en STLs, agrupando variantes con mismo nombre base",
+    "description": "Exporta Prongs, Cutter, objetos numéricos y curvas con geometría en STLs, agrupando variantes con mismo nombre base",
     "category": "Import-Export",
 }
 
@@ -20,11 +20,34 @@ class ExportSTLProps(bpy.types.PropertyGroup):
         default="//stl_exports/"
     )
 
+# --- Función auxiliar: obtener malla desde mesh o curva ---
+def collect_mesh_objects(objs):
+    """Devuelve una lista de objetos malla. Convierte curvas temporalmente a mesh."""
+    mesh_objs = []
+    temp_objs = []
+
+    for obj in objs:
+        if obj.type == "MESH":
+            mesh_objs.append(obj)
+        elif obj.type == "CURVE":
+            # Duplicar y convertir a mesh para no modificar el original
+            dup = obj.copy()
+            dup.data = obj.data.copy()
+            bpy.context.collection.objects.link(dup)
+            bpy.context.view_layer.objects.active = dup
+            bpy.ops.object.select_all(action='DESELECT')
+            dup.select_set(True)
+            bpy.ops.object.convert(target='MESH')
+            mesh_objs.append(dup)
+            temp_objs.append(dup)
+
+    return mesh_objs, temp_objs
+
 # --- Operador Exportar ---
 class EXPORTSTL_OT_export(bpy.types.Operator):
     bl_idname = "exportstl.export"
     bl_label = "Exportar STL"
-    bl_description = "Exporta Prongs, Cutter y objetos con nombres que empiezan en número agrupando por nombre base"
+    bl_description = "Exporta Prongs, Cutter, objetos numéricos y curvas con geometría agrupando por nombre base"
 
     def execute(self, context):
         props = context.scene.export_stl_props
@@ -33,21 +56,26 @@ class EXPORTSTL_OT_export(bpy.types.Operator):
         if not os.path.exists(export_folder):
             os.makedirs(export_folder)
 
-        # --- Desocultar todos los objetos (equivalente a Alt+H) ---
+        # --- Desocultar todos los objetos ---
         bpy.ops.object.hide_view_clear()
+
+        temp_to_delete = []
 
         # --- Exportar grupos Prongs y Cutter ---
         grupos = {
-            "Prongs": [obj for obj in context.view_layer.objects if obj.type == "MESH" and obj.name.startswith("Prongs")],
-            "Cutter": [obj for obj in context.view_layer.objects if obj.type == "MESH" and obj.name.startswith("Cutter")],
+            "Prongs": [obj for obj in context.view_layer.objects if obj.name.startswith("Prongs")],
+            "Cutter": [obj for obj in context.view_layer.objects if obj.name.startswith("Cutter")],
         }
 
         for nombre, objetos in grupos.items():
             if objetos:
                 bpy.ops.object.select_all(action='DESELECT')
-                for obj in objetos:
+                mesh_objs, temps = collect_mesh_objects(objetos)
+                temp_to_delete.extend(temps)
+
+                for obj in mesh_objs:
                     obj.select_set(True)
-                context.view_layer.objects.active = objetos[0]
+                context.view_layer.objects.active = mesh_objs[0]
 
                 filepath = os.path.join(export_folder, f"{nombre}.stl")
                 bpy.ops.export_mesh.stl(
@@ -58,9 +86,9 @@ class EXPORTSTL_OT_export(bpy.types.Operator):
                 )
                 self.report({'INFO'}, f"{nombre} exportado a {filepath}")
 
-        # --- Exportar objetos que empiezan con un número agrupados por nombre base ---
+        # --- Exportar objetos que empiezan con un número ---
         regex_num = re.compile(r"^\d")
-        objetos_numericos = [obj for obj in context.view_layer.objects if obj.type == "MESH" and regex_num.match(obj.name)]
+        objetos_numericos = [obj for obj in context.view_layer.objects if regex_num.match(obj.name)]
 
         # Agrupar por nombre base (quitamos sufijos .001, .002, etc.)
         grupos_numericos = {}
@@ -73,9 +101,12 @@ class EXPORTSTL_OT_export(bpy.types.Operator):
         # Exportar cada grupo como un STL único
         for base_name, objetos in grupos_numericos.items():
             bpy.ops.object.select_all(action='DESELECT')
-            for obj in objetos:
+            mesh_objs, temps = collect_mesh_objects(objetos)
+            temp_to_delete.extend(temps)
+
+            for obj in mesh_objs:
                 obj.select_set(True)
-            context.view_layer.objects.active = objetos[0]
+            context.view_layer.objects.active = mesh_objs[0]
 
             filepath = os.path.join(export_folder, f"{base_name}.stl")
             bpy.ops.export_mesh.stl(
@@ -85,6 +116,12 @@ class EXPORTSTL_OT_export(bpy.types.Operator):
                 use_mesh_modifiers=True
             )
             self.report({'INFO'}, f"{base_name} exportado a {filepath}")
+
+        # --- Eliminar duplicados temporales ---
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in temp_to_delete:
+            obj.select_set(True)
+        bpy.ops.object.delete()
 
         return {'FINISHED'}
 
