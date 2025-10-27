@@ -605,15 +605,10 @@ class OBJECT_OT_clear_measures(bpy.types.Operator):
 
 
 
-
-
-
-
-
-
-class VIEW3D_PT_snapz_panel(bpy.types.Panel):
+# Panel principal (solo contenedor de pestañas)
+class VIEW3D_PT_jewelry_main(bpy.types.Panel):
     bl_label = "Jewelry Tools"
-    bl_idname = "VIEW3D_PT_snapz_panel"
+    bl_idname = "VIEW3D_PT_jewelry_main"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Jewelry Tools'
@@ -635,25 +630,60 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         col.prop(props, "max_step")
         col.operator("object.snap_in_z", icon='SNAP_NORMAL')
 
-        col.operator("object.apply_and_clear_constraints", icon='CONSTRAINT')
-        col.separator()
-        
+
+
+
+
+
+class VIEW3D_PT_snapz_panel(bpy.types.Panel):
+    bl_label = "Jewelry Tools"
+    bl_idname = "VIEW3D_PT_snapz_panel"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Jewelry Tools'
+
+    def draw(self, context):
+        layout = self.layout
+        props = context.scene.snapz_props
+        scene = context.scene
+        wm = context.window_manager
+        scn = context.scene
+
+        layout.label(text="Curvas", icon="CURVE_BEZCIRCLE")
+
+# --- Fila de botones: separar y convertir ---
         row = layout.row(align=True)
         row.operator("mesh.separar_loop_shrinkwrap_only", icon="MOD_SHRINKWRAP")
         row.operator("object.convert_to_curve", icon="CURVE_DATA")
-        col.operator("object.jewelcraft_curve_distribute", text="Distribuir en Curva")
-    
-        row = layout.row(align=True)
-        row.operator("object.scale_z_minus", text=context.scene.scale_z_label, icon="TRIA_DOWN")
-        row.operator("object.scale_z_equal_x", icon="FILE_REFRESH")
-        
-        row = layout.row(align=True)
-        row.operator("object.move_z_up", text=f"Subir +1({scene.z_up_count})", icon= "EXPORT")
-        row.operator("object.move_z_down", text=f" Bajar -1 ({scene.z_down_count})", icon="IMPORT")
-        
 
+ # --- Botón: distribuir en curva ---
+        col = layout.column(align=True)
+        col.operator("object.jewelcraft_curve_distribute", text="Distribuir en Curva")
+
+# --- Botón: aplicar y limpiar constraints ---
+
+        col.operator("object.apply_and_clear_constraints")
+        col.separator()
+
+# --- Zona Escala ---
+
+        row = layout.row(align=True)
+        row.operator("object.scale_z_minus", text=context.scene.scale_z_label, icon="IPO_CONSTANT")
+        row.operator("object.scale_z_equal_x",text="", icon="FILE_REFRESH")
+        
+        row = layout.row(align=True)
+        row.operator("object.move_z_up", text=f"Subir ({scene.z_up_count})", icon= "EXPORT")
+        row.operator("object.move_z_down", text=f" Bajar ({scene.z_down_count})", icon="IMPORT")
+        
+# --- JewelCreaft ---
         layout.separator()
         layout.label(text="JewelCraft", icon="EVENT_OS")
+
+        row = layout.row(align=True)
+        row.operator("object.jewelcraft_mirror",text="Mirror", icon="MOD_MIRROR")
+        row.operator("object.jewelcraft_gem_select_overlapping",text="Overlapping", icon="UV_FACESEL")
+
+
         layout.operator("object.select_all_jewelry", icon="GHOST_ENABLED")
         row = layout.row(align=True)
         row.operator("object.select_round", icon="KEYTYPE_EXTREME_VEC")
@@ -669,11 +699,11 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         row.operator("object.jewelcraft_cutter_add", icon="MESH_CYLINDER")
 
         row = layout.row(align=True)
-        row.operator("object.apply_rotation_only", icon="FILE_REFRESH")
-        row.operator("object.separate_loose_parts", icon="MESH_CUBE")
+        row.operator("object.apply_rotation_only",text="Apply-R", icon="FILE_REFRESH")
+        row.operator("object.separate_loose_parts",text="S-Loose", icon="MESH_CUBE")
+
 
         col = layout.column(align=True)
-
         col.operator("object.jewelcraft_weight_display", text="Calcular Peso",icon="WPAINT_HLT")
 
         col = layout.column(align=True)
@@ -696,6 +726,8 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
 
 
 classes = (
+
+    VIEW3D_PT_jewelry_main,
     #MoverenZ
     OBJECT_OT_move_z_up,
     OBJECT_OT_move_z_down,
