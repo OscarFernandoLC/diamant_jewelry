@@ -344,7 +344,7 @@ class OBJECT_OT_convert_to_curve(bpy.types.Operator):
 #EscalaMenos1
 # --- Propiedad para guardar el texto del botón ---
 def get_button_label(self):
-    return self.get("_scale_z_label", "Restar 0.1 en Z")
+    return self.get("_scale_z_label", "ESCALA")
 
 def set_button_label(self, value):
     self["_scale_z_label"] = value
@@ -426,9 +426,29 @@ class OBJECT_OT_move_z_down(bpy.types.Operator):
 #Seleccionar Rounds, Prongs, Cutter
 
 # --------- Operadores de Seleccion ----------
+
+class OBJECT_OT_select_all_jewelry(bpy.types.Operator):
+    bl_idname = "object.select_all_jewelry"
+    bl_label = "Round + Prongs + Cutter"
+    bl_description = "Selecciona todos los objetos que empiecen con 'Round', 'Prongs' o 'Cutter'"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+        active_obj = None
+        for obj in context.scene.objects:
+            if obj.name.startswith(("Round", "Prongs", "Cutter")):
+                obj.select_set(True)
+                if active_obj is None:
+                    active_obj = obj
+        if active_obj:
+            context.view_layer.objects.active = active_obj
+        return {"FINISHED"}
+
+
 class OBJECT_OT_select_round(bpy.types.Operator):
     bl_idname = "object.select_round"
-    bl_label = "Round"
+    bl_label = "  "
     bl_description = "Selecciona todos los objetos que empiecen con 'Round'"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -446,7 +466,7 @@ class OBJECT_OT_select_round(bpy.types.Operator):
 
 class OBJECT_OT_select_prongs(bpy.types.Operator):
     bl_idname = "object.select_prongs"
-    bl_label = "Prongs"
+    bl_label = "  "
     bl_description = "Selecciona todos los objetos que empiecen con 'Prongs'"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -465,7 +485,7 @@ class OBJECT_OT_select_prongs(bpy.types.Operator):
 
 class OBJECT_OT_select_cutter(bpy.types.Operator):
     bl_idname = "object.select_cutter"
-    bl_label = "Cutter"
+    bl_label = "  "
     bl_description = "Selecciona todos los objetos que empiecen con 'Cutter'"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -583,6 +603,14 @@ class OBJECT_OT_clear_measures(bpy.types.Operator):
 # Panel en N
 # ------------------------------
 
+
+
+
+
+
+
+
+
 class VIEW3D_PT_snapz_panel(bpy.types.Panel):
     bl_label = "Jewelry Tools"
     bl_idname = "VIEW3D_PT_snapz_panel"
@@ -620,12 +648,13 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         row.operator("object.scale_z_equal_x", icon="FILE_REFRESH")
         
         row = layout.row(align=True)
-        row.operator("object.move_z_up", text=f"▲ Subir +1 ({scene.z_up_count})")
-        row.operator("object.move_z_down", text=f"▼ Bajar -1 ({scene.z_down_count})")
+        row.operator("object.move_z_up", text=f"Subir +1({scene.z_up_count})", icon= "EXPORT")
+        row.operator("object.move_z_down", text=f" Bajar -1 ({scene.z_down_count})", icon="IMPORT")
         
 
         layout.separator()
-        layout.label(text="JewelCraft")
+        layout.label(text="JewelCraft", icon="EVENT_OS")
+        layout.operator("object.select_all_jewelry", icon="GHOST_ENABLED")
         row = layout.row(align=True)
         row.operator("object.select_round", icon="KEYTYPE_EXTREME_VEC")
         row.operator("object.select_prongs", icon="MESH_CAPSULE")
@@ -633,11 +662,11 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
         col.separator() 
         
         col = layout.column(align=True)
-        col.operator("object.jewelcraft_gem_add", text="Añadir Gema")
+        col.operator("object.jewelcraft_gem_add", text="Añadir Gema", icon="SEQ_CHROMA_SCOPE")
 
         row = layout.row(align=True)
-        row.operator("object.jewelcraft_prongs_add", text="Añadir Prongs")
-        row.operator("object.jewelcraft_cutter_add", text="Añadir Cutter")
+        row.operator("object.jewelcraft_prongs_add", icon="MESH_CAPSULE")
+        row.operator("object.jewelcraft_cutter_add", icon="MESH_CYLINDER")
 
         row = layout.row(align=True)
         row.operator("object.apply_rotation_only", icon="FILE_REFRESH")
@@ -645,7 +674,7 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
 
         col = layout.column(align=True)
 
-        col.operator("object.jewelcraft_weight_display", text="Calcular Peso")
+        col.operator("object.jewelcraft_weight_display", text="Calcular Peso",icon="WPAINT_HLT")
 
         col = layout.column(align=True)
         col.prop(wm.jewelcraft, "show_spacing", text="Mostrar Espaciado")
@@ -654,8 +683,8 @@ class VIEW3D_PT_snapz_panel(bpy.types.Panel):
 
         
         layout = self.layout
-        layout.prop(context.scene, "face_project_enabled", text="Face Project", toggle=True)
-        layout.prop(context.scene, "parent_z_lock_enabled", toggle=True)
+        layout.prop(context.scene, "face_project_enabled", text="Face Project", icon="SNAP_VOLUME", toggle=True)
+        layout.prop(context.scene, "parent_z_lock_enabled",icon="EVENT_Z", toggle=True)
         layout = self.layout
         layout.operator("object.clear_measures", icon="TRASH")
         
@@ -681,6 +710,7 @@ classes = (
     OBJECT_OT_select_round,
     OBJECT_OT_select_prongs,
     OBJECT_OT_select_cutter,
+    OBJECT_OT_select_all_jewelry,
     OBJECT_OT_apply_rotation,
     OBJECT_OT_separate_loose_parts,
     OBJECT_OT_clear_measures,
